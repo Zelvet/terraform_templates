@@ -1,0 +1,396 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
+    }
+  }
+}
+
+provider "aws" {
+	region 		= "us-east-1"
+	access_key	= "*****************" 
+	secret_key 	= "*******************************"  
+}
+
+resource "aws_vpc" "prod-vpc" {
+  	cidr_block 	= "10.0.0.0/16"
+	tags 		= {
+		Name 	= "production"
+	}
+}
+
+resource "aws_internet_gateway" "igw-prod" {
+	vpc_id = aws_vpc.prod-vpc.id
+}
+
+resource "aws_subnet" "public_bastion-a" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.1.0/27"
+  availability_zone = "us-east-1a"
+  
+  tags = {
+    Name = "public-bastion-a"
+  }
+}
+
+resource "aws_subnet" "private-db-a" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.4.0/24"
+  availability_zone = "us-east-1a"
+  
+  tags = {
+    Name = "private-db-a"
+  }
+}
+
+resource "aws_subnet" "private_app-a" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.3.0/24"
+  availability_zone = "us-east-1a"
+  
+  tags = {
+    Name = "private_app-a"
+  }
+}
+
+resource "aws_subnet" "public_web-a" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.2.0/24"
+  availability_zone = "us-east-1a"
+  
+  tags = {
+    Name = "public-web-a"
+  }
+}
+
+resource "aws_subnet" "public_bastion-b" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.11.0/27"
+  availability_zone = "us-east-1b"
+  
+  tags = {
+    Name = "public-bastion-b"
+  }
+}
+
+resource "aws_subnet" "private-db-b" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.14.0/24"
+  availability_zone = "us-east-1b"
+  
+  tags = {
+    Name = "private-db-b"
+  }
+}
+
+resource "aws_subnet" "private_app-b" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.13.0/24"
+  availability_zone = "us-east-1b"
+  
+  tags = {
+    Name = "private_app-b"
+  }
+}
+
+resource "aws_subnet" "public_web-b" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.12.0/24"
+  availability_zone = "us-east-1b"
+  
+  tags = {
+    Name = "public-web-b"
+  }
+}
+
+resource "aws_subnet" "public_bastion-c" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.21.0/27"
+  availability_zone = "us-east-1c"
+  
+  tags = {
+    Name = "public-bastion-c"
+  }
+}
+
+resource "aws_subnet" "private-db-c" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.24.0/24"
+  availability_zone = "us-east-1c"
+  
+  tags = {
+    Name = "private-db-c"
+  }
+}
+
+resource "aws_subnet" "private_app-c" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.23.0/24"
+  availability_zone = "us-east-1c"
+  
+  tags = {
+    Name = "private_app-c"
+  }
+}
+
+resource "aws_subnet" "public_web-c" {
+  vpc_id     = aws_vpc.prod-vpc.id
+  cidr_block = "10.0.22.0/24"
+  availability_zone = "us-east-1c"
+  
+  tags = {
+    Name = "public-web-c"
+  }
+}
+
+resource "aws_route_table" "prod" {
+  vpc_id = aws_vpc.prod-vpc.id
+
+  route = [
+    {
+      cidr_block = "0.0.0.0/0"
+      gateway_id = aws_internet_gateway.igw-prod.id
+    },
+    {
+      ipv6_cidr_block        = "::/0"
+      gateway_id = aws_internet_gateway.igw-prod.id
+    }
+  ]
+
+  tags = {
+    Name = "example"
+  }
+}
+
+resource "aws_security_group" "allow-web" {
+		name = "allow_web_traffic"
+		description = "allow web inbound traffic"
+		vpc_id = aws_vpc.prod-vpc.id
+		
+	ingress = [
+		{
+			description		= "https"
+			from_port		= "443"
+			to_port			= "443"
+			cidr_blocks		= ["10.0.22.0/24", "10.0.12.0/24", "10.0.2.0/24"]
+		},
+		{
+			description		= "http"
+			from_port		= "80"
+			to_port			= "80"
+			cidr_blocks		= ["10.0.22.0/24", "10.0.12.0/24", "10.0.2.0/24"]
+		},
+		{
+			description		= "ssh"
+			from_port		= "22"
+			to_port			= "22"
+			cidr_blocks		= ["10.0.22.0/24", "10.0.12.0/24", "10.0.2.0/24"]
+		}
+	]
+	  
+	egress = [
+		{
+			from_port        = 0
+			to_port          = 0
+			protocol         = "-1"
+			cidr_blocks      = ["0.0.0.0/0"]
+			ipv6_cidr_blocks = ["::/0"]
+		}
+	]
+}
+
+resource "aws_security_group" "allow-ssh" {
+		name = "allow_ssh"
+		description = "allow ssh traffic"
+		vpc_id = aws_vpc.prod-vpc.id
+		
+	ingress = [
+		{
+			description		= "ssh"
+			from_port		= "22"
+			to_port			= "22"
+			cidr_blocks		= ["0.0.0.0/0"]
+		}
+	]
+	egress = [
+		{
+			from_port        = 0
+			to_port          = 0
+			protocol         = "-1"
+			cidr_blocks      = ["0.0.0.0/0"]
+			ipv6_cidr_blocks = ["::/0"]
+		}
+	]
+}
+
+resource "aws_security_group" "allow-bastions" {
+		name = "allow_bastions"
+		description = "allow bastion to ssh into private subnets"
+		vpc_id = aws_vpc.prod-vpc.id
+		
+	ingress = [
+		{
+			description		= "ssh"
+			from_port		= "22"
+			to_port			= "22"
+			cidr_blocks		= ["10.0.1.0/27", "10.0.11.0/27", "10.0.21.0/27"]
+		}
+	]
+	egress = [
+		{
+			from_port        = 0
+			to_port          = 0
+			protocol         = "-1"
+			cidr_blocks      = ["10.0.0.0/16"]
+			ipv6_cidr_blocks = ["::/0"]
+		}
+	]
+}
+
+resource "aws_s3_bucket" "loggingbucket" {
+  bucket = "streamlogs-bastions"
+  acl    = "private"
+  }
+
+resource "aws_iam_role" "bastion_hosts_logging" {
+  name = "bastion_hosts_logging"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "bastion-host-logging" {
+  name = "bastion-host-logging"
+  description = "bastion host policy to view logging"
+  
+  
+  
+		policy = jsonencode({
+	
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutAnalyticsConfiguration",
+                "s3:GetObjectVersionTagging",
+                "s3:CreateBucket",
+                "s3:ReplicateObject",
+                "s3:GetObjectAcl",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:DeleteBucketWebsite",
+                "s3:GetIntelligentTieringConfiguration",
+                "s3:PutLifecycleConfiguration",
+                "s3:GetObjectVersionAcl",
+                "s3:DeleteObject",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetObjectRetention",
+                "s3:GetBucketWebsite",
+                "s3:PutReplicationConfiguration",
+                "s3:PutObjectLegalHold",
+                "s3:GetObjectLegalHold",
+                "s3:GetBucketNotification",
+                "s3:PutBucketCORS",
+                "s3:GetReplicationConfiguration",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:PutBucketNotification",
+                "s3:PutBucketLogging",
+                "s3:GetAnalyticsConfiguration",
+                "s3:PutBucketObjectLockConfiguration",
+                "s3:GetObjectVersionForReplication",
+                "s3:GetLifecycleConfiguration",
+                "s3:GetInventoryConfiguration",
+                "s3:GetBucketTagging",
+                "s3:PutAccelerateConfiguration",
+                "s3:DeleteObjectVersion",
+                "s3:GetBucketLogging",
+                "s3:ListBucketVersions",
+                "s3:RestoreObject",
+                "s3:ListBucket",
+                "s3:GetAccelerateConfiguration",
+                "s3:GetBucketPolicy",
+                "s3:PutEncryptionConfiguration",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetObjectVersionTorrent",
+                "s3:AbortMultipartUpload",
+                "s3:GetBucketRequestPayment",
+                "s3:DeleteBucketOwnershipControls",
+                "s3:GetObjectTagging",
+                "s3:GetMetricsConfiguration",
+                "s3:GetBucketOwnershipControls",
+                "s3:DeleteBucket",
+                "s3:PutBucketVersioning",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:ListBucketMultipartUploads",
+                "s3:PutIntelligentTieringConfiguration",
+                "s3:PutMetricsConfiguration",
+                "s3:PutBucketOwnershipControls",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:PutInventoryConfiguration",
+                "s3:GetObjectTorrent",
+                "s3:PutBucketWebsite",
+                "s3:PutBucketRequestPayment",
+                "s3:PutObjectRetention",
+                "s3:GetBucketCORS",
+                "s3:GetBucketLocation",
+                "s3:ReplicateDelete",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::streamlogs-bastions/*",
+                "arn:aws:s3:::streamlogs-bastions"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListStorageLensConfigurations",
+                "s3:ListAccessPointsForObjectLambda",
+                "s3:GetAccessPoint",
+                "s3:GetAccountPublicAccessBlock",
+                "s3:ListAllMyBuckets",
+                "s3:ListAccessPoints",
+                "s3:ListJobs",
+                "s3:PutStorageLensConfiguration",
+                "s3:CreateJob"
+            ],
+            "Resource": "*"
+			}
+		]
+	})
+}  
+
+resource "aws_iam_instance_profile" "bastion_profile" {
+	name = "bastion_profile"
+	role = aws_iam_role.bastion_hosts_logging.name
+}
+
+resource "aws_instance" "bastion-host-instance" {
+   ami = "ami-0443305dabd4be2bc"  
+   instance_type = "t2.micro"  
+   availability_zone = "us-east-1a"  
+   associate_public_ip_address = true
+   vpc_security_group_ids = aws_security_group.allow-ssh.id
+   subnet-id = aws_subnet.public_bastion-a.id
+   key_name = "your_key.pem"
+   iam_instance_profile = aws_iam_instance_profile.bastion_hosts_logging.name
+ }
